@@ -2,7 +2,6 @@ package service
 
 import (
 	"strings"
-	"sync"
 
 	"github.com/1260124186-cc/solo-0016-cellar-run-control/internal/clock"
 	"github.com/1260124186-cc/solo-0016-cellar-run-control/internal/domain"
@@ -10,10 +9,8 @@ import (
 )
 
 type Service struct {
-	store           *storage.Store
-	clock           clock.Clock
-	strainMu        sync.Mutex
-	strainClearance map[string]string
+	store *storage.Store
+	clock clock.Clock
 }
 
 func New(store *storage.Store, timeSource clock.Clock) *Service {
@@ -21,9 +18,8 @@ func New(store *storage.Store, timeSource clock.Clock) *Service {
 		timeSource = clock.System{}
 	}
 	return &Service{
-		store:           store,
-		clock:           timeSource,
-		strainClearance: map[string]string{},
+		store: store,
+		clock: timeSource,
 	}
 }
 
@@ -37,25 +33,6 @@ func (s *Service) checkExpected(current int64, expected *int64) error {
 			"the aggregate version does not match X-Expected-Version")
 	}
 	return nil
-}
-
-func (s *Service) rememberStrainClearance(vesselID string, strain string) {
-	s.strainMu.Lock()
-	defer s.strainMu.Unlock()
-	if s.strainClearance == nil {
-		s.strainClearance = map[string]string{}
-	}
-	s.strainClearance[vesselID] = strain
-}
-
-func (s *Service) cultureAllowed(vesselID string, strain string) bool {
-	s.strainMu.Lock()
-	defer s.strainMu.Unlock()
-	cleared, seen := s.strainClearance[vesselID]
-	if !seen {
-		return true
-	}
-	return cleared == "" || cleared == strain
 }
 
 func generateEntityID(prefix string) (string, error) {

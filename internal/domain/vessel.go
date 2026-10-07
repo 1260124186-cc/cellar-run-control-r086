@@ -44,6 +44,28 @@ func (v *Vessel) AdoptCulture(strain string) {
 	v.CultureStrain = strain
 }
 
+// AcceptsCulture reports whether a run using strain may reserve this vessel.
+// The recorded culture is the single source of truth: an unrecorded vessel
+// accepts any strain, and reuse with the same strain always remains possible.
+func (v Vessel) AcceptsCulture(strain string) bool {
+	return v.CultureStrain == "" || v.CultureStrain == strain
+}
+
+// ChangeoverCulture performs the dedicated strain-change cleaning. It is only
+// allowed while the vessel is idle, so an active run can never have its
+// recorded culture silently cleared. Finishing it releases the vessel for any
+// other strain.
+func (v *Vessel) ChangeoverCulture(now time.Time) error {
+	if v.State != VesselAvailable || v.ActiveRunID != nil {
+		return NewError(CodeVesselState,
+			"culture changeover is only allowed for an available vessel")
+	}
+	v.CultureStrain = ""
+	v.UpdatedAt = now.UTC()
+	v.Version++
+	return nil
+}
+
 func (v *Vessel) Reserve(runID string, now time.Time) error {
 	if v.State != VesselAvailable || v.ActiveRunID != nil {
 		return NewError(CodeVesselUnavailable, "vessel is not available for reservation")
@@ -97,7 +119,6 @@ func (v *Vessel) ReleaseReservation(runID string, now time.Time) error {
 	}
 	v.State = VesselAvailable
 	v.ActiveRunID = nil
-	v.CultureStrain = ""
 	v.UpdatedAt = now.UTC()
 	v.Version++
 	return nil

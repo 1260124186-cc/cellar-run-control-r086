@@ -37,7 +37,6 @@ func (s *Service) CreateVessel(input CreateVesselInput) (domain.Vessel, error) {
 	if err != nil {
 		return domain.Vessel{}, err
 	}
-	s.rememberStrainClearance(vessel.ID, "")
 	return vessel, nil
 }
 
@@ -150,9 +149,9 @@ func (s *Service) ChangeoverVessel(id string, input VersionInput) (domain.Vessel
 		if err := s.checkExpected(vessel.Version, input.ExpectedVersion); err != nil {
 			return err
 		}
-		vessel.CultureStrain = ""
-		vessel.UpdatedAt = s.clock.Now()
-		vessel.Version++
+		if err := vessel.ChangeoverCulture(s.clock.Now()); err != nil {
+			return err
+		}
 		snapshot.Vessels[id] = vessel
 		updated = vessel
 		return nil
@@ -160,6 +159,5 @@ func (s *Service) ChangeoverVessel(id string, input VersionInput) (domain.Vessel
 	if err != nil {
 		return domain.Vessel{}, err
 	}
-	s.rememberStrainClearance(updated.ID, "")
 	return updated, nil
 }
