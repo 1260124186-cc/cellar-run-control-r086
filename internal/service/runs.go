@@ -85,7 +85,7 @@ func (s *Service) ReserveRun(
 		if !ok {
 			return domain.NewError(domain.CodeFormulaNotFound, "attached formula was not found")
 		}
-		if !s.cultureAllowed(vessel.ID, formula.CultureStrain) {
+		if !vessel.AcceptsCulture(formula.CultureStrain) {
 			return domain.NewError(domain.CodeVesselState,
 				"vessel requires a culture changeover before this strain")
 		}

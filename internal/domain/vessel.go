@@ -44,6 +44,28 @@ func (v *Vessel) AdoptCulture(strain string) {
 	v.CultureStrain = strain
 }
 
+// AcceptsCulture reports whether a planned run using strain may reserve the
+// vessel. A vessel with no recorded culture accepts anything; a vessel that
+// has fermented a strain only accepts that same strain until a dedicated
+// changeover cleaning clears the record.
+func (v *Vessel) AcceptsCulture(strain string) bool {
+	return v.CultureStrain == "" || v.CultureStrain == strain
+}
+
+// Changeover performs the dedicated culture changeover cleaning. It is only
+// allowed while the vessel is idle, because the culture record must not be
+// wiped out underneath an active run.
+func (v *Vessel) Changeover(now time.Time) error {
+	if v.State != VesselAvailable || v.ActiveRunID != nil {
+		return NewError(CodeVesselState,
+			"culture changeover is only allowed on an available vessel")
+	}
+	v.CultureStrain = ""
+	v.UpdatedAt = now.UTC()
+	v.Version++
+	return nil
+}
+
 func (v *Vessel) Reserve(runID string, now time.Time) error {
 	if v.State != VesselAvailable || v.ActiveRunID != nil {
 		return NewError(CodeVesselUnavailable, "vessel is not available for reservation")
@@ -95,9 +117,10 @@ func (v *Vessel) ReleaseReservation(runID string, now time.Time) error {
 	if v.ActiveRunID == nil || *v.ActiveRunID != runID {
 		return NewError(CodeVesselState, "vessel belongs to a different run")
 	}
+	// Releasing a reservation that never reached fermentation must not
+	// erase the culture recorded by a previous real fermentation.
 	v.State = VesselAvailable
 	v.ActiveRunID = nil
-	v.CultureStrain = ""
 	v.UpdatedAt = now.UTC()
 	v.Version++
 	return nil
